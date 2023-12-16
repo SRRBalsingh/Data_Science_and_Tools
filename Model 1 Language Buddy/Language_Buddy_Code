@@ -1,0 +1,152 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+import random
+import pandas as pd
+
+class LanguageBuddyApp:
+    def __init__(self, master, word_df):
+        self.master = master
+        self.master.title("Language Buddy")
+
+        self.words_df = word_df
+        self.exercises_to_do = 20
+        self.exercise_count = 0
+        self.current_word = None
+        self.incorrect_sentences = []
+
+        self.create_widgets()
+        self.next_exercise()
+
+    def create_widgets(self):
+        self.label = tk.Label(self.master, text="", font=('Helvetica', 20))
+        self.label.pack(pady=20)
+
+        self.entry = tk.Entry(self.master, font=('Helvetica', 16))
+        self.entry.pack(pady=10)
+
+        self.check_button = tk.Button(self.master, text="Check", command=self.check_translation)
+        self.check_button.pack(pady=10)
+
+        self.next_button = tk.Button(self.master, text="Next", command=self.next_exercise)
+        self.next_button.pack(pady=10)
+
+        self.view_words_button = tk.Button(self.master, text="View Wordlist", command=self.view_wordlist)
+        self.view_words_button.pack(pady=10)
+
+        self.score_label = tk.Label(self.master, text="Score: 0%", font=('Helvetica', 12))
+        self.score_label.pack(pady=10)
+
+    def next_exercise(self):
+        if self.exercise_count < self.exercises_to_do:
+            self.exercise_count += 1
+
+            self.exercise_type = random.choice(['translate', 'multiple_choice', 'recall'])
+            self.current_word = self.get_random_word()
+
+            if self.exercise_type == 'translate':
+                self.label.config(text=self.current_word['Native'])
+                self.entry.delete(0, tk.END)
+                self.entry.focus()
+            elif self.exercise_type == 'multiple_choice':
+                self.show_multiple_choice()
+            elif self.exercise_type == 'recall':
+                self.label.config(text=self.current_word['Foreign'])
+                self.master.after(3000, self.hide_word)
+        else:
+            self.end_session()
+
+    def get_random_word(self):
+        return self.words_df.sample().iloc[0]
+
+    def check_translation(self):
+        user_translation = self.entry.get().strip().lower()
+        correct_translation = self.current_word['Foreign'].lower()
+
+        if user_translation == correct_translation:
+            messagebox.showinfo("Correct", "Well done!")
+        else:
+            messagebox.showerror("Incorrect", f"Correct translation: {self.current_word['Foreign']}")
+            self.incorrect_sentences.append(self.current_word)
+
+        self.next_exercise()
+
+    def show_multiple_choice(self):
+        self.clear_widgets()
+
+        choices = [self.current_word['Foreign']]
+        while len(choices) < 4:
+            random_word = self.get_random_word()['Foreign']
+            if random_word not in choices:
+                choices.append(random_word)
+
+        random.shuffle(choices)
+
+        self.label.config(text=self.current_word['Native'])
+        self.entry.delete(0, tk.END)
+        self.create_radio_buttons(choices)
+
+    def create_radio_buttons(self, choices):
+        self.radio_var = tk.StringVar()
+        self.radio_var.set(None)
+
+        for i, choice in enumerate(choices):
+            tk.Radiobutton(self.master, text=choice, variable=self.radio_var, value=choice).pack()
+
+    def hide_word(self):
+        self.label.config(text="")
+        self.entry.delete(0, tk.END)
+        self.entry.focus()
+
+    def view_wordlist(self):
+        wordlist_window = tk.Toplevel(self.master)
+        wordlist_window.title("Wordlist")
+
+        tree = ttk.Treeview(wordlist_window, columns=('Native', 'Foreign'), show='headings')
+        tree.heading('Native', text='Native')
+        tree.heading('Foreign', text='Foreign')
+
+        for index, row in self.words_df.iterrows():
+            tree.insert("", "end", values=(row['Native'], row['Foreign']))
+
+        tree.pack(expand=True, fill='both')
+
+    def clear_widgets(self):
+        for widget in self.master.winfo_children():
+            if widget not in (self.label, self.entry, self.check_button, self.next_button, self.view_words_button, self.score_label):
+                widget.destroy()
+
+    def calculate_score(self):
+        total_sentences = self.exercise_count
+        correct_sentences = total_sentences - len(self.incorrect_sentences)
+        score_percentage = (correct_sentences / total_sentences) * 100
+        self.score_label.config(text=f"Score: {score_percentage:.2f}%")
+
+    def end_session(self):
+        self.clear_widgets()
+
+        self.calculate_score()
+
+        if self.incorrect_sentences:
+            tk.Label(self.master, text="Incorrect Sentences:", font=('Helvetica', 16)).pack(pady=10)
+
+            tree = ttk.Treeview(self.master, columns=('Native', 'Foreign'), show='headings')
+            tree.heading('Native', text='Native')
+            tree.heading('Foreign', text='Foreign')
+
+            for sentence in self.incorrect_sentences:
+                tree.insert("", "end", values=(sentence['Native'], sentence['Foreign']))
+
+            tree.pack(expand=True, fill='both')
+
+def run_language_buddy_app(file_path):
+    try:
+        word_df = pd.read_excel(file_path)
+        root = tk.Tk()
+        app = LanguageBuddyApp(root, word_df)
+        root.mainloop()
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    excel_file_path = 'C:/Users/sarwe/Spyder files/Individual Assignment/Data_French_WordList.1.2.xlsx'  # Replace with the path to your Excel file
+    run_language_buddy_app(excel_file_path)
