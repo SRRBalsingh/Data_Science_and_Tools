@@ -1,0 +1,77 @@
+from flask import Flask, request, jsonify, render_template
+import nltk
+from googletrans import Translator
+import openai
+from language_tool_python import LanguageTool
+
+translator = Translator()
+nltk.download('punkt')
+
+grammar_checker = LanguageTool('en-US')
+
+openai.api_key = 'API-KEY'  # Replace with your OpenAI API key
+model = 'gpt-3.5-turbo'
+
+def translate_text(text, target_language):
+    return translator.translate(text, dest=target_language).text
+
+def check_grammar(text):
+    matches = grammar_checker.check(text)
+    grammar_suggestions = []
+    for match in matches:
+        grammar_suggestions.append({
+            'message': match.message,
+            'start': match.offset,
+            'end': match.offset + match.errorlength
+        })
+    return grammar_suggestions
+
+def check_vocabulary(text):
+    vocabulary_suggestions = []
+    words = set(nltk.corpus.words.words())
+    tokens = nltk.word_tokenize(text.lower())
+    for token in tokens:
+        if token not in words and token.isalpha():
+            vocabulary_suggestions.append({
+                'word': token
+            })
+    return vocabulary_suggestions
+
+def generate_response(input_text):
+    response = openai.Completion.create(
+        engine=model,
+        prompt=input_text,
+        max_tokens=50,
+        n=1,
+        stop=None,
+        temperature=0.7
+    )
+    return response.choices[0].text.strip()
+
+def process_input(input_text, target_language, user_language):
+    processed_text = nltk.sent_tokenize(input_text.lower())
+    translated_text = translate_text(processed_text, target_language)
+    grammar_suggestions = check_grammar(translated_text)
+    vocabulary_suggestions = check_vocabulary(translated_text)
+    response = generate_response(translated_text)
+    response = translate_text(response, user_language)
+    return response
+
+app = Flask("Language Chattie")
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    message = data.get('message')
+    target_language = data.get('target_language')  # Get target language from request data
+    user_language = data.get('user_language')  # Get user language from request data
+
+    response = process_input(message, target_language, user_language)
+    return jsonify({'message': response})
+
+if __name__ == '__main__':
+    app.run()
