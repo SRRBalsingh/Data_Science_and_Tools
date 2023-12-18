@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Language Learning AI Model</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha384-vV4QZRwkJxu3nBkd90TJ+avXE3SGAdYyX+9vqt/4At0DRCS3eNCnqS00zYzq2L/p" crossorigin="anonymous"></script>
+</head>
+<body>
+  <h1>Language Learning AI Model</h1>
+
+  <div>
+    <label for="input-text">Enter your message:</label>
+    <textarea id="input-text" rows="4" cols="50"></textarea>
+  </div>
+  
+  <div>
+    <label for="target-language">Target Language:</label>
+    <input type="text" id="target-language" value="en-US">
+  </div>
+  
+  <div>
+    <label for="user-language">User Language:</label>
+    <input type="text" id="user-language" value="en-US">
+  </div>
+  
+  <button id="submit-btn">Submit</button>
+  
+  <div id="response-container">
+    <h2>Response:</h2>
+    <div id="response-message"></div>
+  </div>
+
+  <script>
+    $(document).ready(function() {
+      $('#submit-btn').on('click', function() {
+        var message = $('#input-text').val();
+        var targetLanguage = $('#target-language').val();
+        var userLanguage = $('#user-language').val();
+        
+        var data = {
+          "message": message,
+          "target_language": targetLanguage,
+          "user_language": userLanguage
+        };
+        
+        $.ajax({
+          url: "/api/chat",
+          type: "POST",
+          contentType: "application/json",
+          data: JSON.stringify(data),
+          success: function(response) {
+            $('#response-message').text(response.message);
+          },
+          error: function(error) {
+            console.log(error);
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
